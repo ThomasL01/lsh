@@ -16,6 +16,17 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <readline/readline.h>
+
+char **character_name_completion(const char *, int, int);
+char *character_name_generator(const char *, int);
+
+char *character_names[] = {
+    "cd",
+    "help",
+    "exit",
+    NULL
+};
 
 /*
   Function Declarations for builtin shell commands:
@@ -154,6 +165,7 @@ int lsh_execute(char **args)
 char *lsh_read_line(void)
 {
 #ifdef LSH_USE_STD_GETLINE
+  printf("> ");
   char *line = NULL;
   ssize_t bufsize = 0; // have getline allocate a buffer for us
   if (getline(&line, &bufsize, stdin) == -1) {
@@ -165,8 +177,14 @@ char *lsh_read_line(void)
     }
   }
   return line;
+#elif LSH_USE_STD_READLINE
+  char *line=NULL;
+  rl_attempted_completion_function = character_name_completion;
+  line = readline("> ");
+  return line;
 #else
 #define LSH_RL_BUFSIZE 1024
+  printf("> ");
   int bufsize = LSH_RL_BUFSIZE;
   int position = 0;
   char *buffer = malloc(sizeof(char) * bufsize);
@@ -254,7 +272,6 @@ void lsh_loop(void)
   int status;
 
   do {
-    printf("> ");
     line = lsh_read_line();
     args = lsh_split_line(line);
     status = lsh_execute(args);
@@ -282,3 +299,30 @@ int main(int argc, char **argv)
   return EXIT_SUCCESS;
 }
 
+
+char **
+character_name_completion(const char *text, int start, int end)
+{
+    rl_attempted_completion_over = 1;
+    return rl_completion_matches(text, character_name_generator);
+}
+
+char *
+character_name_generator(const char *text, int state)
+{
+    static int list_index, len;
+    char *name;
+
+    if (!state) {
+        list_index = 0;
+        len = strlen(text);
+    }
+
+    while ((name = character_names[list_index++])) {
+        if (strncmp(name, text, len) == 0) {
+            return strdup(name);
+        }
+    }
+
+    return NULL;
+}
